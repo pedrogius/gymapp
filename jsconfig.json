@@ -1,0 +1,11 @@
+{
+  "include": ["**/*.js", "**/*.jsx"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./app/*"]
+    }
+  },
+  "exclude": ["node_modules", "**/node_modules/*", "public", ".cache", "build"]
+}
