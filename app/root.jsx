@@ -5,11 +5,13 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useCatch,
   useLoaderData,
 } from "remix";
 import { getSession } from "./sessions.server";
 import Navbar from "./components/Navbar";
 import styles from "./tailwind.css";
+import Card from "./components/Card";
 
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
@@ -58,5 +60,36 @@ function Layout({ children }) {
       </div>
       <Navbar user={user} />
     </div>
+  );
+}
+
+export function CatchBoundary() {
+  const caught = useCatch();
+  const message = caught.data?.message;
+
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        <div className="flex flex-col h-screen font-Lato text-slate-700">
+          <div className="flex items-start justify-center flex-grow bg-hero-color bg-hero">
+            <div>
+              <Card>
+                ERROR: {caught.statusText} {caught.status}
+              </Card>
+              {message && <Card>{message}</Card>}
+            </div>
+          </div>
+          <Navbar user={true} />
+        </div>
+        <Scripts />
+        {process.env.NODE_ENV === "development" && <LiveReload />}
+      </body>
+    </html>
   );
 }

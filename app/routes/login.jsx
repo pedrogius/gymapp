@@ -45,7 +45,7 @@ export async function loader({ request }) {
 // our action function will be launched when the submit button is clicked
 // this will sign in our firebase user and create our session and cookie using user.getIDToken()
 export async function action({ request }) {
-  const data = validator.validate(await request.formData());
+  const data = await validator.validate(await request.formData());
   if (data.error) return validationError(data.error);
   const { email, password } = data.data;
 

@@ -7,7 +7,6 @@ import { auth } from "~/utils/firebase";
 
 export async function loader({ request }) {
   const session = await getSession(request.headers.get("Cookie"));
-
   if (session.has("access_token")) {
     const data = { user: auth.currentUser, error: session.get("error") };
     return json(data, {

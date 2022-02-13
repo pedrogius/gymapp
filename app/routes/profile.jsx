@@ -26,17 +26,12 @@ export const validator = withYup(
     phoneNumber: yup
       .string()
       .matches(/^[0-9]+$/, "No parece un numero de telefono")
-      .min(8, "No parece un numero de telefono")
-      .max(20, "Must be exactly 5 digits")
-      .nullable(),
+      .min(8, "Minimo 8 caracteres")
+      .max(20, "Maximo 20 caracteres")
+      .required(),
     birthYear: yup.number().min(1950).max(2022).nullable(),
     birthMonth: yup.number().min(1).max(12).nullable(),
     birthDay: yup.number().min(1).max(31).nullable(),
-    /* sports: yup.mixed().when("isArray", {
-      is: Array.isArray,
-      then: yup.array().of(yup.string()),
-      otherwise: yup.string(),
-    }), */
     sports: yup.lazy((value) =>
       typeof value === "string" ? yup.string() : yup.array().of(yup.string())
     ),
@@ -48,8 +43,8 @@ export async function loader({ request }) {
   const session = await getSession(request.headers.get("Cookie"));
 
   if (!session.has("access_token")) {
-    // Redirect to the home page if they are already signed in.
-    return redirect("/");
+    // Redirect to the home page if they are not signed in.
+    return redirect("/login");
   }
   const docRef = doc(db, "users", auth.currentUser.uid);
   const docSnap = await getDoc(docRef);

@@ -2,6 +2,8 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import * as dotenv from "dotenv";
+dotenv.config();
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -9,13 +11,13 @@ import { getFirestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyA4wInwI9-AZ3Zm2t79vaDtU_XLJNhMIDI",
-  authDomain: "gymapp-4622c.firebaseapp.com",
-  projectId: "gymapp-4622c",
-  storageBucket: "gymapp-4622c.appspot.com",
-  messagingSenderId: "935432330709",
-  appId: "1:935432330709:web:5177b0f5490f805b29f15c",
-  measurementId: "G-6G2Z4XF23T",
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.AUTH_DOMAIN,
+  projectId: process.env.PROJECT_ID,
+  storageBucket: process.env.STORAGE_BUCKET,
+  messagingSenderId: process.env.MESSAGING_SENDER_ID,
+  appId: process.env.APP_ID,
+  measurementId: process.env.MEASUREMENT_ID,
 };
 
 // Initialize Firebase
