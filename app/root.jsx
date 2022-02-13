@@ -65,6 +65,7 @@ function Layout({ children }) {
 
 export function CatchBoundary() {
   const caught = useCatch();
+  console.log(caught);
   const message = caught.data?.message;
 
   return (
