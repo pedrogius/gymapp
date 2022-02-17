@@ -80,7 +80,7 @@ const register = () => {
       case "auth/email-already-in-use":
         return "Ya existe una cuenta con ese email";
       default:
-        return "Algo salio mal";
+        return "Algo salio mal!";
     }
   };
   return (
