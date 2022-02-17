@@ -1,4 +1,5 @@
 import {
+  json,
   Links,
   LiveReload,
   Meta,
@@ -8,10 +9,11 @@ import {
   useCatch,
   useLoaderData,
 } from "remix";
-import { getSession } from "./sessions.server";
+import { getSession } from "./session";
 import Navbar from "./components/Navbar";
 import styles from "./tailwind.css";
 import Card from "./components/Card";
+import { checkSessionCookie, requireAuth } from "./utils/auth.server";
 
 export function links() {
   return [{ rel: "stylesheet", href: styles }];
@@ -21,11 +23,12 @@ export function meta() {
 }
 
 export async function loader({ request }) {
-  const session = await getSession(request.headers.get("Cookie"));
-  if (session.has("access_token")) {
-    return true;
-  } else {
+  const session = await getSession(request.headers.get("cookie"));
+  const { uid } = await checkSessionCookie(session);
+  if (!uid) {
     return false;
+  } else {
+    return true;
   }
 }
 

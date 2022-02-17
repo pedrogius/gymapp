@@ -4,14 +4,15 @@ import * as yup from "yup";
 import { withYup } from "@remix-validated-form/with-yup";
 import Card from "~/components/Card";
 import TrainerLogo from "../svg/trainer.svg";
-import { commitSession, getSession } from "~/sessions.server";
+import { commitSession, destroySession, getSession } from "~/session";
 import { json, redirect, useActionData } from "remix";
-import { auth, db } from "~/utils/firebase";
+import { auth, db } from "~/utils/firebase.server";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import CustomLink from "~/components/CustomLink";
 import CardHeader from "~/components/CardHeader";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import ValidatedInput from "~/components/ValidatedInput";
+import { checkSessionCookie, signUp } from "~/utils/auth.server";
 
 export const validator = withYup(
   yup.object({
@@ -34,22 +35,19 @@ export const validator = withYup(
 export async function loader({ request }) {
   const session = await getSession(request.headers.get("Cookie"));
 
-  if (session.has("access_token")) {
-    // Redirect to the home page if they are already signed in.
-    return redirect("/");
+  const { uid } = await checkSessionCookie(session);
+  const headers = {
+    "Set-Cookie": await commitSession(session),
+  };
+
+  if (uid) {
+    return redirect("/", { headers });
   }
-
-  const data = { error: session.get("error") };
-
-  return json(data, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  return json(null, { headers });
 }
 
 export let action = async ({ request }) => {
-  const { data, error } = validator.validate(await request.formData());
+  const { data, error } = await validator.validate(await request.formData());
   if (error) return validationError(error);
   const { email, password } = data;
 
@@ -58,26 +56,17 @@ export let action = async ({ request }) => {
 
   //setup user data
   try {
-    const { user } = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, {
-      email,
-      isAdmin: false,
-      created: Timestamp.now(),
-    });
-    const session = await getSession(request.headers.get("Cookie"));
-    session.set("access_token", auth.currentUser.access_token);
+    const sessionCookie = await signUp(email, password);
+    const session = await getSession(request.headers.get("cookie"));
+    session.set("session", sessionCookie);
     return redirect("/", {
       headers: {
         "Set-Cookie": await commitSession(session),
       },
     });
-  } catch (error) {
-    return { signUpError: error.code };
+  } catch (e) {
+    console.log(e);
+    return { signUpError: e.code };
   }
 };
 
@@ -98,12 +87,7 @@ const register = () => {
     <Card>
       <img src={TrainerLogo} alt="logo" width="80%" className="mb-4" />
       <CardHeader>Registro</CardHeader>
-      <ValidatedForm
-        validator={validator}
-        className="space-y-4"
-        method="post"
-        onSubmit={(data) => console.log(data)}
-      >
+      <ValidatedForm validator={validator} className="space-y-4" method="post">
         <ValidatedInput placeholder="Email" name="email" />
         {actionData?.signUpError ? (
           <p className="text-xs text-red-700" role="alert" id="username-error">

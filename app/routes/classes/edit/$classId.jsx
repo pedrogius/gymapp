@@ -3,7 +3,6 @@ import {
   deleteField,
   doc,
   getDoc,
-  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { useState } from "react";
@@ -16,12 +15,11 @@ import Input from "~/components/Input";
 import PlacesAutocomplete from "~/components/PlacesAutocomplete";
 import SubmitButton from "~/components/SubmitButton";
 import Toggle from "~/components/Toggle";
-import { commitSession, getSession } from "~/sessions.server";
-import { auth, db } from "~/utils/firebase";
 import * as yup from "yup";
 import { withYup } from "@remix-validated-form/with-yup";
 import { validationError } from "remix-validated-form";
-import axios from "axios";
+import { deleteClass, getClass, updateClass } from "~/utils/db.server";
+import { requireAuth } from "~/utils/auth.server";
 
 yup.setLocale({
   mixed: {
@@ -48,12 +46,10 @@ export const validator = withYup(
 
 export async function action({ request, params }) {
   const body = await request.formData();
-  console.log(body);
   const method = body.get("_method");
   if (method === "delete") {
     try {
-      const deleteRef = doc(db, "classes", params.classId);
-      await deleteDoc(deleteRef);
+      await deleteClass(params.classId);
       return redirect("/classes");
     } catch (e) {
       console.log(e);
@@ -62,65 +58,27 @@ export async function action({ request, params }) {
     const { data, error } = await validator.validate(body);
     if (error) return validationError(error);
     try {
-      if (data.remote === "on") {
-        const updateRef = doc(db, "classes", params.classId);
-        await updateDoc(updateRef, {
-          ...data,
-          location: deleteField(),
-          locationName: deleteField(),
-        });
-        return redirect("/classes");
-      } else {
-        if (data.location) {
-          const res = await axios(
-            `https://maps.googleapis.com/maps/api/place/details/json?placeid=${data.location}&key=${process.env.PLACES_API_KEY}`
-          );
-          const newData = {
-            ...data,
-            locationName: res.data.result.name,
-            remote: "off",
-          };
-          const updateRef = doc(db, "classes", params.classId);
-          await updateDoc(updateRef, newData);
-          return redirect("/classes");
-        } else {
-          const updateRef = doc(db, "classes", params.classId);
-          await updateDoc(updateRef, { ...data, remote: "off" });
-          return redirect("/classes");
-        }
-      }
+      await updateClass(data, params.classId);
     } catch (e) {
       console.log(e);
     }
   }
-  return null;
+  return redirect("/classes");
 }
 
 export async function loader({ request, params }) {
-  const session = await getSession(request.headers.get("Cookie"));
+  const { user, isAdmin } = await requireAuth(request, { getIsAdmin: true });
+  if (!isAdmin) return redirect("/login");
 
-  if (!session.has("access_token")) {
-    // Redirect to the home page if they are not signed in.
-    return redirect("/login");
-  }
-  const docRef = doc(db, "users", auth.currentUser.uid);
-  const docSnap = await getDoc(docRef);
-
-  const classRef = doc(db, "classes", params.classId);
-  const classSnap = await getDoc(classRef);
+  const classData = await getClass(params.classId);
 
   const data = {
-    error: session.get("error"),
-    user: docSnap.data(),
+    user,
     apiKey: process.env.PLACES_API_KEY,
-    classData: classSnap.data(),
+    classData,
   };
 
-  return json(data, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  return json(data, {});
 }
 
 const days = [
@@ -148,7 +106,6 @@ const edit = () => {
   const { classData } = useLoaderData();
   const error = useActionData();
   const [checked, setChecked] = useState(classData.remote === "on");
-  console.log(error);
   const initialDays = days.filter((day) =>
     classData.days.includes(day.value.toString())
   );

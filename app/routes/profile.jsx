@@ -1,4 +1,4 @@
-import { Form, json, redirect, useActionData, useLoaderData } from "remix";
+import { Form, json, useActionData, useLoaderData } from "remix";
 import { validationError } from "remix-validated-form";
 import Card from "~/components/Card";
 import CardHeader from "~/components/CardHeader";
@@ -6,19 +6,12 @@ import Select from "react-select";
 import { useEffect, useState } from "react";
 import { withYup } from "@remix-validated-form/with-yup";
 import * as yup from "yup";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { auth, db } from "~/utils/firebase";
-import { commitSession, getSession } from "~/sessions.server";
+import { doc, updateDoc } from "firebase/firestore";
+import { auth, db } from "~/utils/firebase.server";
 import Input from "~/components/Input";
 import SubmitButton from "~/components/SubmitButton";
-
-/* user profile
-    name {input-text}
-    phone number {input-text}
-    date of birth {input-select}
-    sports/disciplines {input-select}
-    injuries {input-text}
-*/
+import { requireAuth } from "~/utils/auth.server";
+import { editUserData, getUserData } from "~/utils/db.server";
 
 export const validator = withYup(
   yup.object({
@@ -40,33 +33,22 @@ export const validator = withYup(
 );
 
 export async function loader({ request }) {
-  const session = await getSession(request.headers.get("Cookie"));
+  const { user } = await requireAuth(request);
+  const userData = await getUserData(user.uid);
 
-  if (!session.has("access_token")) {
-    // Redirect to the home page if they are not signed in.
-    return redirect("/login");
-  }
-  const docRef = doc(db, "users", auth.currentUser.uid);
-  const docSnap = await getDoc(docRef);
+  const data = { data: userData };
 
-  const data = { error: session.get("error"), data: docSnap.data() };
-
-  return json(data, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  return json(data, {});
 }
 
 export const action = async ({ request }) => {
-  const { data, error } = validator.validate(await request.formData());
+  const { uid } = await requireAuth(request);
+  const { data, error } = await validator.validate(await request.formData());
   if (error) {
-    console.log("hello", error);
     return validationError(error);
   }
   const dob = new Date(`${data.birthMonth}/${data.birthDay}/${data.birthYear}`);
-  const docRef = doc(db, "users", auth.currentUser.uid);
-  await updateDoc(docRef, {
+  await editUserData(uid, {
     name: data.name,
     dob,
     phoneNumber: data.phoneNumber,
@@ -107,9 +89,9 @@ const sports = [
 const profile = () => {
   const { data } = useLoaderData();
   const error = useActionData();
-  const monthFromDb = new Date(data?.dob.seconds * 1000).getMonth() + 1;
-  const yearFromDb = new Date(data?.dob.seconds * 1000).getFullYear();
-  const dayFromDb = new Date(data?.dob.seconds * 1000).getDate();
+  const monthFromDb = new Date(data?.dob?._seconds * 1000).getMonth() + 1;
+  const yearFromDb = new Date(data?.dob?._seconds * 1000).getFullYear();
+  const dayFromDb = new Date(data?.dob?._seconds * 1000).getDate();
   const [month, setMonth] = useState(
     { value: monthFromDb, label: monthFromDb } || { value: "", label: "Mes" }
   );

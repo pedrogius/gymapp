@@ -45,7 +45,7 @@ const Navbar = ({ user }) => {
       </Link>
       <Link
         className="block w-full px-3 py-5 text-center transition duration-300 hover:bg-neutral-300"
-        to="/classes/create"
+        to="/classes"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

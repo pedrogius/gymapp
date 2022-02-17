@@ -1,12 +1,13 @@
 import Card from "../components/Card";
 import ValidatedInput from "../components/ValidatedInput";
 import SubmitButton from "../components/SubmitButton";
-import { getSession, commitSession } from "~/sessions.server";
+import { getSession, commitSession } from "~/session";
 import { redirect, json } from "remix";
 import { withYup } from "@remix-validated-form/with-yup";
 import * as yup from "yup";
 import { ValidatedForm, validationError } from "remix-validated-form";
 import CardHeader from "~/components/CardHeader";
+import { checkSessionCookie, requireAuth } from "~/utils/auth.server";
 
 export const validator = withYup(
   yup.object({
@@ -19,19 +20,10 @@ export const validator = withYup(
 
 export async function loader({ request }) {
   const session = await getSession(request.headers.get("Cookie"));
+  const { uid } = await checkSessionCookie(session);
+  if (uid) redirect("/");
 
-  if (session.has("access_token")) {
-    // Redirect to the home page if they are already signed in.
-    return redirect("/");
-  }
-
-  const data = { error: session.get("error") };
-
-  return json(data, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  return null;
 }
 
 export let action = async ({ request }) => {

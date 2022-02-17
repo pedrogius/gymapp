@@ -2,45 +2,34 @@ import { Form, json, redirect, useLoaderData } from "remix";
 import Card from "~/components/Card";
 import CardHeader from "~/components/CardHeader";
 import SubmitButton from "~/components/SubmitButton";
-import { commitSession, destroySession, getSession } from "~/sessions.server";
-import { auth } from "~/utils/firebase";
+import { commitSession, destroySession, getSession } from "~/session";
+import { checkSessionCookie } from "~/utils/auth.server";
 
 export async function loader({ request }) {
   const session = await getSession(request.headers.get("Cookie"));
-  if (session.has("access_token")) {
-    const data = { user: auth.currentUser, error: session.get("error") };
-    return json(data, {
-      headers: {
-        "Set-Cookie": await commitSession(session),
-      },
-    });
-  } else {
-    return null;
-  }
+  const { uid } = await checkSessionCookie(session);
+  const headers = {
+    "Set-Cookie": await commitSession(session),
+  };
+  return json(uid || null, { headers });
 }
 
 export let action = async ({ request }) => {
   const session = await getSession(request.headers.get("Cookie"));
 
-  if (session.has("access_token")) {
-    auth.signOut();
-    return redirect("/", {
-      headers: { "Set-Cookie": await destroySession(session) },
-    });
-  }
-
-  return redirect("/");
+  return redirect("/login", {
+    headers: { "Set-Cookie": await destroySession(session) },
+  });
 };
 
 export default function Index() {
   const data = useLoaderData();
-  const isLoggedIn = data?.user;
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.4" }}>
       <Card>
         <CardHeader>POWERCLASS</CardHeader>
       </Card>
-      {isLoggedIn ? (
+      {data ? (
         <Form method="post">
           <SubmitButton color="indigo" buttonText="Log Out" />
         </Form>

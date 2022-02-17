@@ -8,12 +8,11 @@ import Toggle from "~/components/Toggle";
 import { withYup } from "@remix-validated-form/with-yup";
 import * as yup from "yup";
 import { validationError } from "remix-validated-form";
-import { addDoc, collection, doc, getDoc } from "firebase/firestore";
-import { auth, db } from "~/utils/firebase";
 import CustomSelect from "~/components/CustomSelect";
-import { commitSession, getSession } from "~/sessions.server";
 import axios from "axios";
 import { useState } from "react";
+import { requireAuth } from "~/utils/auth.server";
+import { createClass } from "~/utils/db.server";
 
 /* yup.setLocale({
   mixed: {
@@ -39,26 +38,15 @@ export const validator = withYup(
 );
 
 export async function loader({ request }) {
-  const session = await getSession(request.headers.get("Cookie"));
-
-  if (!session.has("access_token")) {
-    // Redirect to the home page if they are not signed in.
-    return redirect("/login");
-  }
-  const docRef = doc(db, "users", auth.currentUser.uid);
-  const docSnap = await getDoc(docRef);
+  const { user, isAdmin } = await requireAuth(request, { getIsAdmin: true });
+  if (!isAdmin) return redirect("/login");
 
   const data = {
-    error: session.get("error"),
-    data: docSnap.data(),
+    user,
     apiKey: process.env.PLACES_API_KEY,
   };
 
-  return json(data, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  return json(data, {});
 }
 
 export async function action({ request }) {
@@ -70,12 +58,10 @@ export async function action({ request }) {
         `https://maps.googleapis.com/maps/api/place/details/json?placeid=${data.location}&key=${process.env.PLACES_API_KEY}`
       );
       const newData = { ...data, locationName: res.data.result.name };
-      const collectionRef = collection(db, "classes");
-      await addDoc(collectionRef, newData);
+      await createClass(newData);
       return redirect("/classes");
     } else {
-      const collectionRef = collection(db, "classes");
-      await addDoc(collectionRef, data);
+      await createClass(data);
       return redirect("/classes");
     }
   } catch (e) {
@@ -107,7 +93,6 @@ const minutes = [
 
 const create = () => {
   const error = useActionData();
-  console.log(error);
   const [checked, setChecked] = useState(false);
 
   const onToggleChange = () => {

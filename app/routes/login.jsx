@@ -1,9 +1,7 @@
-import { auth } from "~/utils/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { redirect, json, useActionData } from "remix";
 import { withYup } from "@remix-validated-form/with-yup";
 import * as yup from "yup";
-import { getSession, commitSession } from "~/sessions.server";
+import { getSession, commitSession } from "~/session";
 import TrainerLogo from "../svg/trainer.svg";
 import Card from "../components/Card";
 import SubmitButton from "../components/SubmitButton";
@@ -11,6 +9,7 @@ import CustomLink from "../components/CustomLink";
 import { ValidatedForm, validationError } from "remix-validated-form";
 import CardHeader from "~/components/CardHeader";
 import ValidatedInput from "~/components/ValidatedInput";
+import { checkSessionCookie, signIn } from "~/utils/auth.server";
 
 export const validator = withYup(
   yup.object({
@@ -28,45 +27,34 @@ export const validator = withYup(
 
 export async function loader({ request }) {
   const session = await getSession(request.headers.get("Cookie"));
-
-  if (session.has("access_token")) {
-    return redirect("/");
+  const { uid } = await checkSessionCookie(session);
+  const headers = {
+    "Set-Cookie": await commitSession(session),
+  };
+  if (uid) {
+    return redirect("/", { headers });
   }
-
-  const data = { error: session.get("error") };
-
-  return json(data, {
-    headers: {
-      "Set-Cookie": await commitSession(session),
-    },
-  });
+  return json(null, { headers });
 }
 
-// our action function will be launched when the submit button is clicked
-// this will sign in our firebase user and create our session and cookie using user.getIDToken()
 export async function action({ request }) {
-  const data = await validator.validate(await request.formData());
-  if (data.error) return validationError(data.error);
-  const { email, password } = data.data;
+  const { data, error } = await validator.validate(await request.formData());
+  if (error) return validationError(error);
+  const { email, password } = data;
 
   let fields = { email, password };
 
   try {
-    const { user } = await signInWithEmailAndPassword(auth, email, password);
-    // if signin was successful then we have a user
-    if (user) {
-      // let's setup the session and cookie wth users idToken
-      let session = await getSession(request.headers.get("Cookie"));
-      session.set("access_token", await user.getIdToken());
-      // let's send the user to the main page after login
-      return redirect("/", {
-        headers: {
-          "Set-Cookie": await commitSession(session),
-        },
-      });
-    }
+    const sessionCookie = await signIn(email, password);
+    const session = await getSession(request.headers.get("Cookie"));
+    session.set("session", sessionCookie);
+    return redirect("/", {
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      },
+    });
   } catch (e) {
-    const err = e.message.split("Error ")[1].slice(1, -2).split("/");
+    const err = e.message?.split("Error ")[1].slice(1, -2).split("/");
     if (err[0] === "auth") {
       return {
         fields,
